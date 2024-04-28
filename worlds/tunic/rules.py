@@ -49,11 +49,11 @@ def has_ability(state: CollectionState, player: int, ability: str, options: Tuni
 
 # a check to see if you can whack things in melee at all
 def has_stick(state: CollectionState, player: int) -> bool:
-    return state.has("Stick", player) or state.has("Sword Upgrade", player, 1) or state.has("Sword", player)
+    return state.has_any({"Stick", "Sword", "Sword Upgrade"}, player)
 
 
 def has_sword(state: CollectionState, player: int) -> bool:
-    return state.has("Sword", player) or state.has("Sword Upgrade", player, 2)
+    return state.has("Sword Upgrade", player, 2) or state.has("Sword", player)
 
 
 def has_ice_grapple_logic(long_range: bool, state: CollectionState, player: int, options: TunicOptions,
@@ -68,22 +68,22 @@ def has_ice_grapple_logic(long_range: bool, state: CollectionState, player: int,
             has_ability(state, player, icebolt, options, ability_unlocks)
 
 
-def can_ladder_storage(state: CollectionState, player: int, options: TunicOptions) -> bool:
-    if options.logic_rules == "unrestricted" and has_stick(state, player):
+def can_ladder_storage(state: CollectionState, player: int, unrestricted: bool) -> bool:
+    if unrestricted and has_stick(state, player):
         return True
     else:
         return False
 
 
-def has_mask(state: CollectionState, player: int, options: TunicOptions) -> bool:
-    if options.maskless:
+def has_mask(state: CollectionState, player: int, maskless: bool) -> bool:
+    if maskless:
         return True
     else:
         return state.has(mask, player)
 
 
-def has_lantern(state: CollectionState, player: int, options: TunicOptions) -> bool:
-    if options.lanternless:
+def has_lantern(state: CollectionState, player: int, lanternless: bool) -> bool:
+    if lanternless:
         return True
     else:
         return state.has(lantern, player)
@@ -93,34 +93,37 @@ def set_region_rules(world: "TunicWorld", ability_unlocks: Dict[str, int]) -> No
     multiworld = world.multiworld
     player = world.player
     options = world.options
+    unrestricted = options.logic_rules == "unrestricted"
+    maskless = bool(options.maskless)
+    lanternless = bool(options.lanternless)
 
     multiworld.get_entrance("Overworld -> Overworld Holy Cross", player).access_rule = \
         lambda state: has_ability(state, player, holy_cross, options, ability_unlocks)
     multiworld.get_entrance("Overworld -> Beneath the Well", player).access_rule = \
         lambda state: has_stick(state, player) or state.has(fire_wand, player)
     multiworld.get_entrance("Overworld -> Dark Tomb", player).access_rule = \
-        lambda state: has_lantern(state, player, options)
+        lambda state: has_lantern(state, player, lanternless)
     multiworld.get_entrance("Overworld -> West Garden", player).access_rule = \
         lambda state: state.has(laurels, player) \
-        or can_ladder_storage(state, player, options)
+        or can_ladder_storage(state, player, unrestricted)
     multiworld.get_entrance("Overworld -> Eastern Vault Fortress", player).access_rule = \
         lambda state: state.has(laurels, player) \
         or has_ice_grapple_logic(True, state, player, options, ability_unlocks) \
-        or can_ladder_storage(state, player, options)
+        or can_ladder_storage(state, player, unrestricted)
     # using laurels or ls to get in is covered by the -> Eastern Vault Fortress rules
     multiworld.get_entrance("Overworld -> Beneath the Vault", player).access_rule = \
-        lambda state: has_lantern(state, player, options) and \
+        lambda state: has_lantern(state, player, lanternless) and \
         has_ability(state, player, prayer, options, ability_unlocks)
     multiworld.get_entrance("Ruined Atoll -> Library", player).access_rule = \
         lambda state: state.has_any({grapple, laurels}, player) and \
         has_ability(state, player, prayer, options, ability_unlocks)
     multiworld.get_entrance("Overworld -> Quarry", player).access_rule = \
         lambda state: (has_sword(state, player) or state.has(fire_wand, player)) \
-        and (state.has_any({grapple, laurels}, player) or can_ladder_storage(state, player, options))
+        and (state.has_any({grapple, laurels}, player) or can_ladder_storage(state, player, unrestricted))
     multiworld.get_entrance("Quarry Back -> Quarry", player).access_rule = \
         lambda state: has_sword(state, player) or state.has(fire_wand, player)
     multiworld.get_entrance("Quarry -> Lower Quarry", player).access_rule = \
-        lambda state: has_mask(state, player, options)
+        lambda state: has_mask(state, player, maskless)
     multiworld.get_entrance("Lower Quarry -> Rooted Ziggurat", player).access_rule = \
         lambda state: state.has(grapple, player) and has_ability(state, player, prayer, options, ability_unlocks)
     multiworld.get_entrance("Swamp -> Cathedral", player).access_rule = \
@@ -137,6 +140,9 @@ def set_location_rules(world: "TunicWorld", ability_unlocks: Dict[str, int]) -> 
     multiworld = world.multiworld
     player = world.player
     options = world.options
+    unrestricted = options.logic_rules == "unrestricted"
+    maskless = bool(options.maskless)
+    lanternless = bool(options.lanternless)
 
     forbid_item(multiworld.get_location("Secret Gathering Place - 20 Fairy Reward", player), fairies, player)
 
@@ -145,14 +151,14 @@ def set_location_rules(world: "TunicWorld", ability_unlocks: Dict[str, int]) -> 
              lambda state: has_ability(state, player, prayer, options, ability_unlocks))
     set_rule(multiworld.get_location("Fortress Courtyard - Chest Near Cave", player),
              lambda state: has_ability(state, player, prayer, options, ability_unlocks) or state.has(laurels, player)
-             or can_ladder_storage(state, player, options)
+             or can_ladder_storage(state, player, unrestricted)
              or (has_ice_grapple_logic(True, state, player, options, ability_unlocks)
-                 and has_lantern(state, player, options)))
+                 and has_lantern(state, player, lanternless)))
     set_rule(multiworld.get_location("Fortress Courtyard - Page Near Cave", player),
              lambda state: has_ability(state, player, prayer, options, ability_unlocks) or state.has(laurels, player)
-             or can_ladder_storage(state, player, options)
+             or can_ladder_storage(state, player, unrestricted)
              or (has_ice_grapple_logic(True, state, player, options, ability_unlocks)
-                 and has_lantern(state, player, options)))
+                 and has_lantern(state, player, lanternless)))
     set_rule(multiworld.get_location("East Forest - Dancing Fox Spirit Holy Cross", player),
              lambda state: has_ability(state, player, holy_cross, options, ability_unlocks))
     set_rule(multiworld.get_location("Forest Grave Path - Holy Cross Code by Grave", player),
@@ -204,8 +210,8 @@ def set_location_rules(world: "TunicWorld", ability_unlocks: Dict[str, int]) -> 
              lambda state: state.has(laurels, player))
     set_rule(multiworld.get_location("Overworld - [West] Chest After Bell", player),
              lambda state: state.has(laurels, player)
-             or (has_lantern(state, player, options) and has_sword(state, player))
-             or can_ladder_storage(state, player, options))
+             or (has_lantern(state, player, lanternless) and has_sword(state, player))
+             or can_ladder_storage(state, player, unrestricted))
     set_rule(multiworld.get_location("Overworld - [Northwest] Chest Beneath Quarry Gate", player),
              lambda state: state.has_any({grapple, laurels}, player) or options.logic_rules)
     set_rule(multiworld.get_location("Overworld - [East] Grapple Chest", player),
@@ -215,12 +221,12 @@ def set_location_rules(world: "TunicWorld", ability_unlocks: Dict[str, int]) -> 
     set_rule(multiworld.get_location("Sealed Temple - Holy Cross Chest", player),
              lambda state: has_ability(state, player, holy_cross, options, ability_unlocks) and
              (state.has(laurels, player)
-              or (has_lantern(state, player, options) and
+              or (has_lantern(state, player, lanternless) and
                   (has_sword(state, player) or state.has(fire_wand, player)))
               or has_ice_grapple_logic(False, state, player, options, ability_unlocks)))
     set_rule(multiworld.get_location("Sealed Temple - Page Pickup", player),
              lambda state: state.has(laurels, player)
-             or (has_lantern(state, player, options) and (has_sword(state, player) or state.has(fire_wand, player)))
+             or (has_lantern(state, player, lanternless) and (has_sword(state, player) or state.has(fire_wand, player)))
              or has_ice_grapple_logic(False, state, player, options, ability_unlocks))
     set_rule(multiworld.get_location("West Furnace - Lantern Pickup", player),
              lambda state: has_stick(state, player) or state.has_any({fire_wand, laurels}, player))
@@ -262,8 +268,8 @@ def set_location_rules(world: "TunicWorld", ability_unlocks: Dict[str, int]) -> 
              lambda state: state.has(laurels, player))
     set_rule(multiworld.get_location("West Garden - [Central Highlands] After Garden Knight", player),
              lambda state: state.has(laurels, player)
-             or (has_lantern(state, player, options) and has_sword(state, player))
-             or can_ladder_storage(state, player, options))
+             or (has_lantern(state, player, lanternless) and has_sword(state, player))
+             or can_ladder_storage(state, player, unrestricted))
 
     # Ruined Atoll
     set_rule(multiworld.get_location("Ruined Atoll - [West] Near Kevin Block", player),
@@ -299,13 +305,13 @@ def set_location_rules(world: "TunicWorld", ability_unlocks: Dict[str, int]) -> 
     set_rule(multiworld.get_location("Beneath the Fortress - Bridge", player),
              lambda state: has_stick(state, player) or state.has_any({laurels, fire_wand}, player))
     set_rule(multiworld.get_location("Beneath the Fortress - Obscured Behind Waterfall", player),
-             lambda state: has_stick(state, player) and has_lantern(state, player, options))
+             lambda state: has_stick(state, player) and has_lantern(state, player, lanternless))
 
     # Quarry
     set_rule(multiworld.get_location("Quarry - [Central] Above Ladder Dash Chest", player),
              lambda state: state.has(laurels, player))
     set_rule(multiworld.get_location("Quarry - [West] Upper Area Bombable Wall", player),
-             lambda state: has_mask(state, player, options))
+             lambda state: has_mask(state, player, maskless))
     # nmg - kill boss scav with orb + firecracker, or similar
     set_rule(multiworld.get_location("Rooted Ziggurat Lower - Hexagon Blue", player),
              lambda state: has_sword(state, player) or (state.has(grapple, player) and options.logic_rules))
